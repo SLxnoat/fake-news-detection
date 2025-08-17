@@ -7,6 +7,9 @@ from typing import Dict, List, Any
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from .model_deployment_0169 import ModelDeployment
+from .inference_pipeline_0169 import InferencePipeline
+
 class PerformanceOptimizer:
     def __init__(self):
         self.benchmark_results = {}
