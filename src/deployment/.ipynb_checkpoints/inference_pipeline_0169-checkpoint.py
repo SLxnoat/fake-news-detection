@@ -3,7 +3,7 @@ import numpy as np
 from typing import Dict, List, Any, Optional
 import time
 import logging
-from .model_deployment import ModelDeployment
+from model_deployment_0169 import ModelDeployment
 
 logger = logging.getLogger(__name__)
 
