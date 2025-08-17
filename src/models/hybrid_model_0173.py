@@ -452,7 +452,7 @@ def test_hybrid_model():
         print(f"\n🔧 Testing {name} model:")
         
         # Forward pass
-       if name == 'with_attention':
+           if name == 'with_attention':
             outputs, attention = model(bert_features, tfidf_features, meta_features, return_attention=True)
             print(f"   Output shape: {outputs.shape}")
             print(f"   Attention weights shape: {attention.shape}")
