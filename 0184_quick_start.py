@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""
-Quick Start Script for Fake News Detection Project
-Member: ITBIN-2211-0184 (EDA & Documentation)
-"""
-
 import os
 import sys
 import pandas as pd
