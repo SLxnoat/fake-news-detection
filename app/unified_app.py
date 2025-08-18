@@ -79,19 +79,23 @@ class UnifiedApp:
                 ('classifier', LogisticRegression(random_state=42))
             ])
             
-            # Fit on simple dummy data
+            # Fit on simple dummy data with more variety
             dummy_texts = [
-                "This is a true statement",
-                "This is a false statement", 
-                "This is a half true statement"
+                "This is a true statement about facts",
+                "This is completely false and wrong", 
+                "This is partially true but misleading",
+                "This is mostly accurate information",
+                "This is barely true with many errors",
+                "This is completely made up nonsense"
             ]
-            dummy_labels = [5, 1, 3]  # true, false, half-true
+            dummy_labels = [5, 1, 3, 4, 2, 0]  # true, false, half-true, mostly-true, barely-true, pants-fire
             
             fallback_pipeline.fit(dummy_texts, dummy_labels)
             
             # Add to models
             self.models['fallback_model'] = fallback_pipeline
             st.success("✅ Fallback model created successfully!")
+            st.info("💡 Fallback model uses: 5=true, 4=mostly-true, 3=half-true, 2=barely-true, 1=false, 0=pants-fire")
             
         except Exception as e:
             st.error(f"❌ Could not create fallback model: {e}")
@@ -119,6 +123,7 @@ class UnifiedApp:
                     if hasattr(model, 'predict'):
                         pred = model.predict([processed_text])
                         pred_val = pred[0] if hasattr(pred, '__len__') else pred
+                        
                         # Map numeric predictions to label strings if applicable
                         try:
                             import numpy as _np
@@ -135,8 +140,12 @@ class UnifiedApp:
                     st.warning(f"⚠️ Model {name} failed: {e}")
                     predictions[name] = 'error'
             
+            # Debug: show what we got
+            st.write("🔍 Debug: Model predictions:", predictions)
+            
             # Ensemble prediction
             ensemble_pred = self.compute_ensemble(predictions)
+            st.write("🔍 Debug: Final ensemble:", ensemble_pred)
             
             result = {
                 'text': text,
@@ -225,6 +234,32 @@ class UnifiedApp:
         elif page == "ℹ️ About":
             self.about_page()
     
+    def test_models(self):
+        """Test models with sample inputs to see what they predict"""
+        st.subheader("🧪 Model Testing")
+        
+        test_texts = [
+            "This is a completely true statement about verified facts.",
+            "This is completely false and made up information.",
+            "This statement is partially true but has some inaccuracies."
+        ]
+        
+        for i, test_text in enumerate(test_texts):
+            st.write(f"**Test {i+1}**: {test_text}")
+            
+            processed = self.text_processor.process_single_text(test_text)
+            st.write(f"Processed: {processed}")
+            
+            for name, model in self.models.items():
+                try:
+                    pred = model.predict([processed])
+                    pred_val = pred[0] if hasattr(pred, '__len__') else pred
+                    mapped = self.baseline_models.reverse_label_mapping.get(int(pred_val), str(pred_val))
+                    st.write(f"  {name}: {pred_val} → '{mapped}'")
+                except Exception as e:
+                    st.write(f"  {name}: Error - {e}")
+            st.write("---")
+
     def home_page(self):
         """Home page"""
         st.header("🏠 Welcome to Unified Fake News Detection")
@@ -260,6 +295,10 @@ class UnifiedApp:
             - Simple ensemble over available models
             - Basic analytics of recent predictions
             """)
+        
+        # Add model testing section
+        if st.checkbox("🧪 Test Models"):
+            self.test_models()
     
     def prediction_page(self):
         """Prediction interface"""
