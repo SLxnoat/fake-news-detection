@@ -13,10 +13,10 @@ from plotly.subplots import make_subplots
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
 try:
-    from preprocessing.text_processor import TextPreprocessor
-    from preprocessing.metadata_processor import MetadataProcessor
-except ImportError:
-    st.error("Could not import preprocessing modules. Please ensure the project structure is correct.")
+    from preprocessing.text_preprocessor_0148 import TextPreprocessor
+    from preprocessing.metadata_processor_0148 import MetadataProcessor
+except ImportError as e:
+    st.error(f"Could not import preprocessing modules: {e}. Please ensure the project structure is correct.")
 
 # Page configuration
 st.set_page_config(

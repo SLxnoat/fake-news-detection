@@ -267,6 +267,63 @@ class BaselineModels:
         print(report_df.to_string(index=False))
         
         return report_df
+    
+    def load_models(self):
+        """Load pre-trained models from disk"""
+        import os
+        
+        model_files = {
+            'tfidf_logistic': 'models/baseline/tfidf_logistic_0149.pkl',
+            'tfidf_rf': 'models/baseline/tfidf_rf_0149.pkl'
+        }
+        
+        loaded_models = {}
+        
+        for name, filepath in model_files.items():
+            if os.path.exists(filepath):
+                try:
+                    with open(filepath, 'rb') as f:
+                        model = pickle.load(f)
+                    loaded_models[name] = model
+                    print(f"✅ Loaded {name} model from {filepath}")
+                except Exception as e:
+                    print(f"❌ Error loading {name} model: {e}")
+            else:
+                print(f"⚠️ Model file not found: {filepath}")
+        
+        if loaded_models:
+            self.models.update(loaded_models)
+            print(f"✅ Successfully loaded {len(loaded_models)} models")
+        else:
+            print("⚠️ No models were loaded. You may need to train models first.")
+        
+        return loaded_models
+    
+    def predict(self, texts):
+        """Make predictions using loaded models"""
+        if not self.models:
+            print("❌ No models loaded. Please load models first.")
+            return None
+        
+        # Use the first available model for prediction
+        model_name = list(self.models.keys())[0]
+        model = self.models[model_name]
+        
+        try:
+            # Preprocess texts
+            processed_texts = self.preprocessor.preprocess_texts(texts)
+            
+            # Make predictions
+            predictions = model.predict(processed_texts)
+            
+            # Convert numeric predictions back to labels
+            label_predictions = [self.reverse_label_mapping.get(pred, 'unknown') for pred in predictions]
+            
+            return label_predictions
+            
+        except Exception as e:
+            print(f"❌ Error making predictions: {e}")
+            return None
 
 # Usage example
 if __name__ == "__main__":

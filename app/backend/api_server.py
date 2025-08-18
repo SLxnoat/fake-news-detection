@@ -16,8 +16,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 # Add src to path
 sys.path.append('../../src')
-from preprocessing.text_processor import TextProcessor
-from preprocessing.metadata_processor import MetadataProcessor
+from preprocessing.text_preprocessor_0148 import TextPreprocessor
+from preprocessing.metadata_processor_0148 import MetadataProcessor
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -29,7 +29,7 @@ app.config['SECRET_KEY'] = 'your-secret-key-here'  # Change in production
 
 class FakeNewsAPI:
     def __init__(self):
-        self.text_processor = TextProcessor()
+        self.text_processor = TextPreprocessor()
         self.metadata_processor = MetadataProcessor()
         self.models = {}
         self.prediction_cache = {}

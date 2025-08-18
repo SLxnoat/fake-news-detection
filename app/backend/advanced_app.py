@@ -18,8 +18,8 @@ import base64
 
 # Add src to path
 sys.path.append('../../src')
-from preprocessing.text_processor import TextProcessor
-from preprocessing.metadata_processor import MetadataProcessor
+from preprocessing.text_preprocessor_0148 import TextPreprocessor
+from preprocessing.metadata_processor_0148 import MetadataProcessor
 
 class FakeNewsDetectionApp:
     def __init__(self):
@@ -38,6 +38,10 @@ class FakeNewsDetectionApp:
             self.session_state.prediction_count = 0
         if 'batch_results' not in self.session_state:
             self.session_state.batch_results = []
+        
+        # Initialize preprocessors
+        self.text_processor = TextPreprocessor()
+        self.metadata_processor = MetadataProcessor()
 
     def load_models(self):
         """Load all available models"""
