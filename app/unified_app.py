@@ -105,11 +105,8 @@ class UnifiedApp:
             # Preprocess text
             processed_text = self.text_processor.process_single_text(text)
             
-            # Process metadata
-            if metadata:
-                processed_metadata = self.metadata_processor.process_metadata(metadata)
-            else:
-                processed_metadata = {}
+            # Process metadata (keep raw for now; processing expects a DataFrame)
+            processed_metadata = metadata or {}
             
             # Get predictions from models
             predictions = {}

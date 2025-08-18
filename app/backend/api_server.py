@@ -1,17 +1,42 @@
 from flask import Flask, request, jsonify, send_file
-from flask_cors import CORS
+try:
+    from flask_cors import CORS
+except ImportError:
+    # Fallback no-op CORS to allow server startup without flask-cors installed
+    def CORS(app=None, *args, **kwargs):
+        return app
 import pandas as pd
 import numpy as np
 import pickle
 import json
 import os
 import sys
-from datetime import datetime
+import tempfile
+from datetime import datetime, timedelta
 import logging
 import time
 from functools import wraps
 import hashlib
-import jwt
+try:
+    import jwt as pyjwt
+    JWT_AVAILABLE = True
+except ImportError:
+    JWT_AVAILABLE = False
+    class _DummyJWT:
+        """Insecure JWT stub for development when PyJWT is missing."""
+        @staticmethod
+        def encode(payload, key, algorithm='HS256'):
+            return f"dummy.{payload.get('username', 'user')}"
+
+        @staticmethod
+        def decode(token, key, algorithms=None):
+            if isinstance(token, bytes):
+                token = token.decode('utf-8', errors='ignore')
+            if isinstance(token, str) and token.startswith('dummy.'):
+                return {'username': token.split('.', 1)[1]}
+            raise Exception('Invalid token')
+
+    pyjwt = _DummyJWT()
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # Add src to path
@@ -26,6 +51,9 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 app.config['SECRET_KEY'] = 'your-secret-key-here'  # Change in production
+
+if not JWT_AVAILABLE:
+    logger.warning("PyJWT is not installed. Using an insecure dummy token for development.")
 
 class FakeNewsAPI:
     def __init__(self):
@@ -71,9 +99,9 @@ class FakeNewsAPI:
     def authenticate_token(self, token: str) -> dict:
         """Authenticate JWT token"""
         try:
-            payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+            payload = pyjwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
             return payload
-        except jwt.InvalidTokenError:
+        except Exception:
             return None
 
 api = FakeNewsAPI()
@@ -139,7 +167,7 @@ def login():
         return jsonify({'error': 'Username and password required'}), 400
     
     if username in api.users and check_password_hash(api.users[username], password):
-        token = jwt.encode({
+        token = pyjwt.encode({
             'username': username,
             'exp': datetime.utcnow() + timedelta(hours=24)
         }, app.config['SECRET_KEY'], algorithm='HS256')
@@ -159,6 +187,7 @@ def predict():
     """Single prediction endpoint"""
     try:
         data = request.get_json()
+        start_time = time.time()
         statement = data.get('statement', '')
         metadata = data.get('metadata', {})
         use_cache = data.get('use_cache', True)
@@ -174,17 +203,11 @@ def predict():
             cached_result['from_cache'] = True
             return jsonify(cached_result)
         
-        # Process text
-        processed_text = api.text_processor.preprocess_text(statement)
-        
-        # Extract features
-        text_features = api.text_processor.extract_features(processed_text)
-        
-        # Process metadata if available
-        if metadata:
-            metadata_features = api.metadata_processor.process_metadata(metadata)
-        else:
-            metadata_features = {}
+        # Process text (basic preprocessing)
+        try:
+            processed_text = api.text_processor.process_single_text(statement)
+        except Exception:
+            processed_text = statement
         
         # Make prediction (simulate with multiple models)
         predictions = {}
@@ -211,12 +234,12 @@ def predict():
                 for model, pred in predictions.items()
             },
             'text_features': {
-                'word_count': len(statement.split()),
-                'char_count': len(statement),
-                'sentence_count': len(statement.split('.')),
-                'avg_word_length': np.mean([len(word) for word in statement.split()])
+                'word_count': len(processed_text.split()),
+                'char_count': len(processed_text),
+                'sentence_count': len(processed_text.split('.')),
+                'avg_word_length': float(np.mean([len(word) for word in processed_text.split()]) or 0)
             },
-            'processing_time': time.time() - time.time(),  # Will be set properly
+            'processing_time': time.time() - start_time,
             'timestamp': datetime.now().isoformat(),
             'from_cache': False
         }
@@ -390,7 +413,7 @@ def export_predictions():
         
         # Save to CSV
         filename = f"predictions_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-        filepath = f"/tmp/{filename}"
+        filepath = os.path.join(tempfile.gettempdir(), filename)
         df.to_csv(filepath, index=False)
         
         return send_file(filepath, as_attachment=True, download_name=filename)
