@@ -9,6 +9,32 @@ import os
 
 class TextPreprocessor:
     def __init__(self):
+        # Ensure required NLTK resources are available (handles new NLTK 'punkt_tab')
+        try:
+            nltk.data.find('corpora/stopwords')
+        except LookupError:
+            try:
+                nltk.download('stopwords')
+            except Exception:
+                pass
+
+        try:
+            nltk.data.find('tokenizers/punkt')
+        except LookupError:
+            try:
+                nltk.download('punkt')
+            except Exception:
+                pass
+
+        # Newer NLTK may require separate 'punkt_tab'
+        try:
+            nltk.data.find('tokenizers/punkt_tab')
+        except LookupError:
+            try:
+                nltk.download('punkt_tab')
+            except Exception:
+                pass
+
         self.stop_words = set(stopwords.words('english'))
         
     def clean_text(self, text):
