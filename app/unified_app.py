@@ -32,6 +32,10 @@ class UnifiedApp:
         self.baseline_models = BaselineModels()
         self.models = {}
         self.prediction_history = []
+        # Canonical label set (LIAR schema)
+        self.canonical_labels = [
+            'pants-fire', 'false', 'barely-true', 'half-true', 'mostly-true', 'true'
+        ]
         self.load_models()
     
     def load_models(self):
@@ -124,7 +128,7 @@ class UnifiedApp:
                                 mapped = str(pred_val)
                         except Exception:
                             mapped = str(pred_val)
-                        predictions[name] = mapped
+                        predictions[name] = self.normalize_label(mapped)
                     else:
                         predictions[name] = 'error'
                 except Exception as e:
@@ -150,16 +154,48 @@ class UnifiedApp:
             st.error(f"❌ Prediction error: {e}")
             return {'error': str(e)}
     
+    def normalize_label(self, label):
+        """Normalize various label formats to canonical hyphenated strings."""
+        if label is None:
+            return 'unknown'
+        try:
+            # If numeric as string, map via baseline mapping if possible
+            if isinstance(label, (int,)):
+                return self.baseline_models.reverse_label_mapping.get(int(label), 'unknown')
+            label_str = str(label).strip().lower().replace('_', '-').replace(' ', '-')
+            # Common aliases
+            aliases = {
+                'pantsfire': 'pants-fire',
+                'pants-fire': 'pants-fire',
+                'pants_fire': 'pants-fire',
+                'mostly_true': 'mostly-true',
+                'mostlytrue': 'mostly-true',
+                'half_true': 'half-true',
+                'halftrue': 'half-true',
+                'barely_true': 'barely-true',
+                'barelytrue': 'barely-true'
+            }
+            if label_str in aliases:
+                return aliases[label_str]
+            if label_str in self.canonical_labels:
+                return label_str
+            return label_str
+        except Exception:
+            return 'unknown'
+
     def compute_ensemble(self, predictions):
         """Compute ensemble prediction"""
         valid_preds = [p for p in predictions.values() if p != 'error']
         if not valid_preds:
             return 'unknown'
         
-        # Simple majority voting
+        # Simple majority voting on normalized labels
         from collections import Counter
-        most_common = Counter(valid_preds).most_common(1)[0][0]
-        return most_common
+        normalized = [self.normalize_label(p) for p in valid_preds]
+        most_common = Counter(normalized).most_common()
+        if not most_common:
+            return 'unknown'
+        return most_common[0][0]
     
     def run(self):
         """Main application runner"""
@@ -194,10 +230,8 @@ class UnifiedApp:
         st.header("🏠 Welcome to Unified Fake News Detection")
         
         st.markdown("""
-        This system combines multiple approaches to detect fake news:
-        - **Text Analysis**: TF-IDF and advanced NLP
-        - **Metadata Analysis**: Speaker credibility, party affiliation
-        - **Multiple Models**: Ensemble learning for better accuracy
+        A streamlined system for analyzing statements with classic ML models and
+        robust preprocessing. Use the sidebar to run predictions, view analytics, and explore data.
         """)
         
         # System status
@@ -208,6 +242,24 @@ class UnifiedApp:
             st.metric("Total Predictions", len(self.prediction_history))
         with col3:
             st.metric("System Status", "🟢 Online")
+
+        st.markdown("---")
+        colA, colB = st.columns(2)
+        with colA:
+            st.subheader("Quick Tips")
+            st.markdown("""
+            - Use clear, single statements for best results
+            - Include optional metadata (speaker, party, subject) when available
+            - Train baseline models if none are loaded: `python scripts/train_baseline_models.py`
+            """)
+        with colB:
+            st.subheader("Capabilities")
+            st.markdown("""
+            - Text preprocessing (NLTK)
+            - TF-IDF based baseline models (LogReg, RandomForest)
+            - Simple ensemble over available models
+            - Basic analytics of recent predictions
+            """)
     
     def prediction_page(self):
         """Prediction interface"""
@@ -345,23 +397,22 @@ class UnifiedApp:
     def about_page(self):
         """About page"""
         st.header("ℹ️ About")
-        
         st.markdown("""
-        ## Unified Fake News Detection System
-        
+        ## About  Unified Fake News Detection System
+
         **Team Members:**
         - ITBIN-2211-0149: Baseline Models
         - ITBIN-2211-0169: Cross-Validation
         - ITBIN-2211-0173: BERT Integration
         - ITBIN-2211-0184: EDA & Visualizations
-        
+
         **Features:**
         - Text preprocessing and analysis
         - Metadata processing
         - Multiple ML models
         - Ensemble predictions
         - Real-time analytics
-        
+
         **Technology:**
         - Python, Streamlit, scikit-learn
         - NLTK, BERT, TF-IDF
