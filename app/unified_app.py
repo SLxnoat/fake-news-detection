@@ -114,7 +114,17 @@ class UnifiedApp:
                 try:
                     if hasattr(model, 'predict'):
                         pred = model.predict([processed_text])
-                        predictions[name] = pred[0] if hasattr(pred, '__len__') else pred
+                        pred_val = pred[0] if hasattr(pred, '__len__') else pred
+                        # Map numeric predictions to label strings if applicable
+                        try:
+                            import numpy as _np
+                            if isinstance(pred_val, (int, _np.integer)):
+                                mapped = self.baseline_models.reverse_label_mapping.get(int(pred_val), str(pred_val))
+                            else:
+                                mapped = str(pred_val)
+                        except Exception:
+                            mapped = str(pred_val)
+                        predictions[name] = mapped
                     else:
                         predictions[name] = 'error'
                 except Exception as e:
@@ -225,20 +235,27 @@ class UnifiedApp:
         """Display prediction results"""
         ensemble = result['ensemble_prediction']
         
-        # Color coding
-        if ensemble in ['true', 'mostly_true']:
+        # Normalize label for display and color logic
+        ensemble_norm = (ensemble or 'unknown')
+        if not isinstance(ensemble_norm, str):
+            ensemble_norm = str(ensemble_norm)
+        ensemble_norm = ensemble_norm.strip().lower()
+
+        # Color coding (labels use hyphens)
+        if ensemble_norm in ['true', 'mostly-true']:
             color = "green"
             icon = "✅"
-        elif ensemble in ['false', 'pants_fire']:
+        elif ensemble_norm in ['false', 'pants-fire']:
             color = "red"
             icon = "❌"
         else:
             color = "orange"
             icon = "⚠️"
         
+        display_label = ensemble_norm.replace('-', ' ').upper()
         st.markdown(f"""
         <div style="text-align: center; padding: 2rem; background-color: {color}20; border: 2px solid {color}; border-radius: 10px;">
-            <h2>{icon} Prediction: {ensemble.upper()}</h2>
+            <h2>{icon} Prediction: {display_label}</h2>
         </div>
         """, unsafe_allow_html=True)
         
