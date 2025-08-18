@@ -1,6 +1,12 @@
 ## Run Guide
 
 ### Quick start (Windows PowerShell)
+- **Fix paths first (if needed)**
+```powershell
+# Run path fix utility to resolve import issues
+python scripts\fix_paths.py
+```
+
 - **Create/activate env**
 ```powershell
 # Using conda (recommended)
@@ -66,6 +72,7 @@ Invoke-WebRequest http://localhost:5000/api/health | Select-Object -ExpandProper
 
 ### Troubleshooting
 - **Python not found on Windows**: Disable App Execution Aliases for Python, or use Anaconda Prompt, or ensure PATH is set.
+- **Import errors**: Run `python scripts\fix_paths.py` to fix path issues.
 - **NLTK resource error**: If prompted, run once:
 ```powershell
 python - <<'PY'

@@ -8,8 +8,9 @@ import os
 import pandas as pd
 import numpy as np
 
-# Add src to path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+# Add src to path (robust to current working directory)
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent / 'src'))
 
 try:
     from models.baseline_models_0149 import BaselineModels

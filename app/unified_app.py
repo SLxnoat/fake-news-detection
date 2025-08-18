@@ -14,8 +14,9 @@ from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
 
-# Add src to path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+# Add src to path (robust to current working directory)
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent / 'src'))
 
 try:
     from preprocessing.text_preprocessor_0148 import TextPreprocessor

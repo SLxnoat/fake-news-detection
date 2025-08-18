@@ -40,8 +40,8 @@ except ImportError:
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # Add src to path (robust to current working directory)
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-SRC_PATH = os.path.abspath(os.path.join(CURRENT_DIR, '..', '..', 'src'))
+from pathlib import Path
+SRC_PATH = str(Path(__file__).parent.parent.parent / 'src')
 if SRC_PATH not in sys.path:
     sys.path.insert(0, SRC_PATH)
 from preprocessing.text_preprocessor_0148 import TextPreprocessor
