@@ -17,6 +17,13 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+- **Configure environment (optional but recommended)**
+```powershell
+# Copy example and edit with your values
+Copy-Item env.example .env
+# Edit .env with your secret keys and passwords
+```
+
 - **Train baseline models (optional, recommended)**
 ```powershell
 python scripts\train_baseline_models.py
@@ -47,9 +54,15 @@ python app\backend\api_server.py
 Invoke-WebRequest http://localhost:5000/api/health | Select-Object -ExpandProperty Content
 ```
 
+### Security notes
+- **Production**: Set `SECRET_KEY`, `ADMIN_PASSWORD`, `API_USER_PASSWORD` in environment variables
+- **Development**: Default values are used if `.env` not found (insecure for production)
+- **API Auth**: Use JWT tokens from `/api/login` endpoint for protected routes
+
 ### Notes
 - The app includes a lightweight fallback model if trained models are missing (`models/baseline/*.pkl`). Training improves results.
 - NLTK data (stopwords, punkt, punkt_tab) downloads automatically at first run.
+- **API now uses real model predictions** when trained models are available, falls back to simulation only when no models loaded.
 
 ### Troubleshooting
 - **Python not found on Windows**: Disable App Execution Aliases for Python, or use Anaconda Prompt, or ensure PATH is set.
@@ -68,3 +81,4 @@ PY
 - **Port in use**: Change Streamlit port `--server.port 8502` or stop other processes using 8501/5000.
 - **Missing models**: Run `python scripts\train_baseline_models.py`.
 - **CORS/JWT errors on API**: Ensure `flask-cors` and `PyJWT` are installed (already in `requirements.txt`).
+- **API predictions seem random**: Train models first with `python scripts\train_baseline_models.py` for real predictions.

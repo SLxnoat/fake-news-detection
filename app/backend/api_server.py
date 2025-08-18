@@ -46,6 +46,7 @@ if SRC_PATH not in sys.path:
     sys.path.insert(0, SRC_PATH)
 from preprocessing.text_preprocessor_0148 import TextPreprocessor
 from preprocessing.metadata_processor_0148 import MetadataProcessor
+from models.baseline_models_0149 import BaselineModels
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -53,15 +54,16 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)
-app.config['SECRET_KEY'] = 'your-secret-key-here'  # Change in production
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 if not JWT_AVAILABLE:
-    logger.warning("PyJWT is not installed. Using an insecure dummy token for development.")
+    logger.warning("PyJWT is not installed. API auth will use an insecure dummy token in development.")
 
 class FakeNewsAPI:
     def __init__(self):
         self.text_processor = TextPreprocessor()
         self.metadata_processor = MetadataProcessor()
+        self.baseline_models = BaselineModels()
         self.models = {}
         self.prediction_cache = {}
         self.api_usage_stats = {
@@ -75,24 +77,27 @@ class FakeNewsAPI:
         self.load_models()
         
         # Demo users (replace with proper database in production)
+        # In production, use environment variables or secure storage
+        admin_password = os.environ.get('ADMIN_PASSWORD', 'password123')
+        api_user_password = os.environ.get('API_USER_PASSWORD', 'apikey123')
         self.users = {
-            'admin': generate_password_hash('password123'),
-            'api_user': generate_password_hash('apikey123')
+            'admin': generate_password_hash(admin_password),
+            'api_user': generate_password_hash(api_user_password)
         }
 
     def load_models(self):
         """Load available models"""
-        model_dir = "../../models"
-        if os.path.exists(model_dir):
-            for file in os.listdir(model_dir):
-                if file.endswith('.pkl'):
-                    model_name = file.replace('.pkl', '')
-                    try:
-                        with open(os.path.join(model_dir, file), 'rb') as f:
-                            self.models[model_name] = pickle.load(f)
-                        logger.info(f"Loaded model: {model_name}")
-                    except Exception as e:
-                        logger.error(f"Failed to load {model_name}: {str(e)}")
+        try:
+            # Try to load trained baseline models
+            baseline_models = self.baseline_models.load_models()
+            if baseline_models:
+                self.models.update(baseline_models)
+                logger.info(f"Loaded {len(baseline_models)} baseline models")
+            else:
+                logger.warning("No trained models found. API will use fallback predictions.")
+        except Exception as e:
+            logger.error(f"Error loading models: {str(e)}")
+            logger.warning("API will use fallback predictions.")
 
     def generate_cache_key(self, statement: str, metadata: dict = None) -> str:
         """Generate cache key for predictions"""
@@ -206,27 +211,61 @@ def predict():
             cached_result['from_cache'] = True
             return jsonify(cached_result)
         
-        # Process text (basic preprocessing)
-        try:
-            processed_text = api.text_processor.process_single_text(statement)
-        except Exception:
-            processed_text = statement
+        # Process text
+        processed_text = api.text_processor.process_single_text(statement)
         
-        # Make prediction (simulate with multiple models)
+        # Make real predictions using loaded models
         predictions = {}
         confidences = {}
         
-        for model_name in ['logistic_regression', 'random_forest', 'neural_network']:
-            # Simulate model predictions
-            pred = np.random.choice(['real', 'fake'])
-            conf = np.random.uniform(0.6, 0.95)
-            predictions[model_name] = pred
-            confidences[model_name] = conf
+        if api.models:
+            # Use real models
+            for name, model in api.models.items():
+                try:
+                    if hasattr(model, 'predict'):
+                        pred = model.predict([processed_text])
+                        pred_val = pred[0] if hasattr(pred, '__len__') else pred
+                        
+                        # Map numeric predictions to labels
+                        if isinstance(pred_val, (int, np.integer)):
+                            mapped = api.baseline_models.reverse_label_mapping.get(int(pred_val), str(pred_val))
+                        else:
+                            mapped = str(pred_val)
+                        
+                        predictions[name] = mapped
+                        
+                        # Get confidence if available
+                        if hasattr(model, 'predict_proba'):
+                            proba = model.predict_proba([processed_text])[0]
+                            confidences[name] = float(max(proba))
+                        else:
+                            confidences[name] = 0.8  # Default confidence
+                    else:
+                        predictions[name] = 'error'
+                        confidences[name] = 0.0
+                except Exception as e:
+                    logger.warning(f"Model {name} failed: {str(e)}")
+                    predictions[name] = 'error'
+                    confidences[name] = 0.0
+        else:
+            # Fallback: simulate predictions (for demo when no models loaded)
+            logger.warning("No models loaded, using fallback predictions")
+            for model_name in ['logistic_regression', 'random_forest']:
+                pred = np.random.choice(['true', 'false', 'half-true'])
+                conf = np.random.uniform(0.6, 0.9)
+                predictions[model_name] = pred
+                confidences[model_name] = conf
         
-        # Ensemble prediction
-        fake_votes = sum(1 for p in predictions.values() if p == 'fake')
-        final_prediction = 'fake' if fake_votes > len(predictions) / 2 else 'real'
-        final_confidence = np.mean(list(confidences.values()))
+        # Ensemble prediction (simple majority voting)
+        valid_preds = [p for p in predictions.values() if p != 'error']
+        if valid_preds:
+            from collections import Counter
+            most_common = Counter(valid_preds).most_common(1)[0][0]
+            final_prediction = most_common
+        else:
+            final_prediction = 'unknown'
+        
+        final_confidence = np.mean([conf for conf in confidences.values() if conf > 0]) if confidences else 0.5
         
         # Prepare response
         result = {
@@ -242,6 +281,7 @@ def predict():
                 'sentence_count': len(processed_text.split('.')),
                 'avg_word_length': float(np.mean([len(word) for word in processed_text.split()]) or 0)
             },
+            'models_used': list(predictions.keys()),
             'processing_time': time.time() - start_time,
             'timestamp': datetime.now().isoformat(),
             'from_cache': False
